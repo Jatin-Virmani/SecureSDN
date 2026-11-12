@@ -1,8 +1,7 @@
-# 🛡️ SecureSDN
+# SecureSDN
 
 **A security framework for Software-Defined Networks (SDN).**
-It detects, blocks, escalates against, and self-heals from attacks on both the
-*data plane* (hosts attacking each other) and the *control plane* (the SDN controller itself).
+It detects attacks like SYN flood, port scan and ARP spoofing, blocks the attacker, and keeps working if a controller crashes.
 
 Built with **Mininet + Open vSwitch + Ryu (OpenFlow 1.3)**, a Flask live dashboard, and Python.
 
@@ -109,7 +108,7 @@ bash scripts/smoke_test.sh   # checks that ryu-manager and the Python packages w
 bash scripts/test.sh         # optional: 15 offline unit tests (no Mininet needed)
 ```
 
-The HMAC key for admin commands is generated automatically in `certs/` on first run. It is git-ignored; never commit it.
+On first run, an HMAC key for admin commands is created in `certs/` (git-ignored).
 
 ## Run (4 terminals, in this order)
 
@@ -183,7 +182,7 @@ docs/screenshots/   dashboard screenshots
 * Failover uses a lease file, so both controllers must run on the same machine; a real multi-host deployment would need a shared store such as etcd or ZooKeeper. Detection of a dead leader takes about 3 s, and the MAC-learning table is rebuilt afterwards (brief flooding).
 * Integrity checker: after a failover the new leader adopts existing forwarding flows as its baseline, so an insider rule with exactly those priorities planted during that single scan would be adopted.
 * The dashboard has **no authentication** and holds the key that signs admin commands. It binds to `127.0.0.1` only; do not expose it to a network.
-* Attacks are for use **only inside this Mininet sandbox**. Do not point them at systems you do not own.
+* The attack scripts are meant for the Mininet test network only.
 
 ## Deployment note
 
