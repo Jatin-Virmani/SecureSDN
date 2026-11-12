@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SecureSDN Dashboard</title>
+<style>
+  :root { --bg:#0b0f14; --panel:#131a22; --panel2:#18212b; --border:#263241; --text:#e6edf3; --dim:#8b98a8;
+          --green:#3fb950; --red:#f85149; --yellow:#d29922; --blue:#58a6ff; --purple:#bc8cff; --orange:#ff9a3c; }
+  * { box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:-apple-system,Segoe UI,Roboto,sans-serif; margin:0; padding:18px 22px 40px; }
+  header { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:14px; }
+  h1 { font-size:21px; margin:0; letter-spacing:.2px; } h1 span { color:var(--blue); }
+  .sub { color:var(--dim); font-size:12px; margin-top:3px; }
+  .hdr-right { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .pill { display:inline-flex; align-items:center; gap:6px; padding:4px 11px; border-radius:14px; font-size:12px; font-weight:600; border:1px solid var(--border); background:var(--panel); }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--dim); }
+  .pill.leader { border-color:#3fb95066; color:var(--green); } .pill.leader .dot { background:var(--green); box-shadow:0 0 8px var(--green); }
+  .pill.standby { color:var(--blue); } .pill.standby .dot { background:var(--blue); }
+  .pill.down { border-color:#f8514966; color:var(--red); } .pill.down .dot { background:var(--red); }
+  .toggle-wrap { display:flex; align-items:center; gap:10px; font-weight:600; font-size:14px; }
+  .switch { position:relative; width:52px; height:27px; } .switch input { opacity:0; width:0; height:0; }
+  .slider { position:absolute; inset:0; background:var(--red); border-radius:27px; cursor:pointer; transition:.2s; }
+  .slider:before { content:""; position:absolute; width:21px; height:21px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.2s; }
+  input:checked + .slider { background:var(--green); } input:checked + .slider:before { transform:translateX(25px); }
+  #banner { display:none; margin-bottom:14px; padding:12px 16px; border-radius:8px; font-weight:600; font-size:14px;
+            background:linear-gradient(90deg,#1f6feb44,#3fb95033); border:1px solid #3fb95088; animation:fadein .4s; }
+  @keyframes fadein { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
+  .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:14px; }
+  .kpi { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:12px 14px; }
+  .kpi .n { font-size:28px; font-weight:700; line-height:1.1; } .kpi .l { color:var(--dim); font-size:12px; margin-top:2px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:14px; min-width:0; }
+  .panel h2 { font-size:12px; margin:0 0 10px; color:var(--dim); text-transform:uppercase; letter-spacing:.07em; display:flex; justify-content:space-between; }
+  .panel h2 small { text-transform:none; letter-spacing:0; font-weight:400; }
+  .wide { grid-column:1 / -1; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th,td { text-align:left; padding:5px 6px; border-bottom:1px solid var(--border); vertical-align:middle; }
+  th { color:var(--dim); font-weight:500; font-size:12px; }
+  .badge { display:inline-block; padding:1px 8px; border-radius:10px; font-size:11px; font-weight:600; white-space:nowrap; }
+  .b-syn_flood { background:#f8514933; color:var(--red); } .b-pktin_flood { background:#d2992233; color:var(--yellow); }
+  .b-port_scan { background:#58a6ff33; color:var(--blue); } .b-arp_spoof { background:#bc8cff33; color:var(--purple); }
+  .b-rogue_flow { background:#ff9a3c33; color:var(--orange); } .b-flow_deleted { background:#ff9a3c33; color:var(--orange); }
+  .b-manual { background:#30363d; color:var(--dim); }
+  .strike { display:inline-block; min-width:26px; text-align:center; padding:1px 6px; border-radius:6px; background:#f8514922; color:var(--red); font-weight:700; font-size:12px; }
+  .bar { height:5px; background:#263241; border-radius:3px; overflow:hidden; margin-top:4px; } .bar > i { display:block; height:100%; background:var(--red); transition:width 1s linear; }
+  button { background:#21262d; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:5px 11px; font-size:12px; cursor:pointer; }
+  button:hover { background:#30363d; }
+  svg { width:100%; display:block; } #topoSvg { height:314px; } canvas { width:100%; height:150px; }
+  .host-blocked { fill:var(--red) !important; } .host-quar { fill:var(--purple) !important; }
+  .link-blocked { stroke:var(--red) !important; stroke-dasharray:4,3; }
+  .ring { fill:none; stroke:var(--red); stroke-width:2; opacity:0; } .ring.on { animation:pulse 1.4s infinite; }
+  @keyframes pulse { 0% { r:17; opacity:.9; } 100% { r:30; opacity:0; } }
+  .empty { color:var(--dim); font-size:13px; padding:8px 0; } .ok { color:var(--green); } .bad { color:var(--red); } .warn { color:var(--orange); }
+  .ladder { display:flex; gap:5px; flex-wrap:wrap; margin:6px 0 4px; }
+  .step { padding:3px 9px; border-radius:6px; font-size:12px; font-weight:600; border:1px solid var(--border); color:var(--dim); background:var(--panel2); }
+  .step.hit { background:#f8514933; color:var(--red); border-color:#f8514988; } .step.quar.hit { background:#bc8cff33; color:var(--purple); border-color:#bc8cff88; }
+  .step.next { border-style:dashed; color:var(--yellow); border-color:#d2992288; }
+  .off { padding:8px 0; border-bottom:1px solid var(--border); } .off:last-child { border:none; }
+  .ev { font-size:12.5px; padding:4px 0; border-bottom:1px solid var(--border); display:flex; gap:8px; } .ev time { color:var(--dim); min-width:70px; }
+  .big { font-size:15px; font-weight:600; margin-bottom:6px; }
+  .mono { font-family:ui-monospace,Menlo,monospace; font-size:12px; } .legend { font-size:11px; color:var(--dim); display:flex; gap:12px; margin-top:4px; }
+  .hint { color:var(--dim); font-size:12px; margin-top:8px; } code { background:#0b0f14; padding:1px 6px; border-radius:4px; font-size:12px; color:var(--orange); }
+  @media (max-width:900px) { .grid { grid-template-columns:1fr; } .kpis { grid-template-columns:1fr 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Secure<span>SDN</span> Live Dashboard</h1>
+    <div class="sub">h1 10.0.0.1 &middot; h2 10.0.0.2 &middot; h3 10.0.0.3 &middot; h4 10.0.0.4 &nbsp;|&nbsp; detect &rarr; block &rarr; escalate &rarr; self-heal</div>
+  </div>
+  <div class="hdr-right">
+    <span class="pill" id="pill-c0"><span class="dot"></span>c0</span>
+    <span class="pill" id="pill-c1"><span class="dot"></span>c1</span>
+    <div class="toggle-wrap">Defense
+      <label class="switch"><input type="checkbox" id="defenseToggle" checked><span class="slider"></span></label>
+    </div>
+  </div>
+</header>
+
+<div id="banner"></div>
+
+<div class="kpis">
+  <div class="kpi"><div class="n" id="k-alerts">0</div><div class="l">threats detected</div></div>
+  <div class="kpi"><div class="n" id="k-blocks" style="color:var(--red)">0</div><div class="l">attackers blocked right now</div></div>
+  <div class="kpi"><div class="n" id="k-integrity" style="color:var(--orange)">0</div><div class="l">insider tampering fixed</div></div>
+  <div class="kpi"><div class="n" id="k-failovers" style="color:var(--blue)">0</div><div class="l">controller failovers survived</div></div>
+</div>
+
+<div class="grid">
+  <div class="panel">
+    <h2>Topology &amp; control plane <small>solid = leader &middot; dashed = standby</small></h2>
+    <svg id="topoSvg" viewBox="0 0 460 314"></svg>
+  </div>
+  <div class="panel">
+    <h2>Packet-in rate per switch <small id="chartMax"></small></h2>
+    <canvas id="chart" width="700" height="170"></canvas>
+    <div class="legend"><span style="color:#58a6ff">&#9632; s1</span><span style="color:#3fb950">&#9632; s2</span><span style="color:#d29922">&#9632; s3</span><span>(spikes = attack traffic hitting the controller)</span></div>
+  </div>
+
+  <div class="panel">
+    <h2>Alerts</h2>
+    <div id="alertsBox"><div class="empty">No alerts yet.</div></div>
+  </div>
+  <div class="panel">
+    <h2>Currently blocked <small>escalating ban lengths</small></h2>
+    <div id="blocksBox"><div class="empty">Nothing blocked.</div></div>
+  </div>
+
+  <div class="panel">
+    <h2>Repeat offenders &mdash; graduated blocking</h2>
+    <div id="offBox"></div>
+  </div>
+  <div class="panel">
+    <h2>Flow-table integrity <small>insider-threat guard</small></h2>
+    <div id="intBox"></div>
+  </div>
+
+  <div class="panel wide">
+    <h2>Tamper-evident audit log <small>SHA-256 hash chain</small></h2>
+    <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+      <button id="verifyBtn">Verify chain</button><span id="chainResult"></span>
+    </div>
+    <div id="auditBox"></div>
+  </div>
+</div>
+
+<script>
+const HOSTS = {
+  h1:{ip:'10.0.0.1',mac:'00:00:00:00:00:01',edge:'2:2',sw:'s2',x:80, y:272},
+  h2:{ip:'10.0.0.2',mac:'00:00:00:00:00:02',edge:'2:3',sw:'s2',x:190,y:272},
+  h3:{ip:'10.0.0.3',mac:'00:00:00:00:00:03',edge:'3:2',sw:'s3',x:270,y:272},
+  h4:{ip:'10.0.0.4',mac:'00:00:00:00:00:04',edge:'3:3',sw:'s3',x:380,y:272},
+};
+const SW = { s1:{x:230,y:112}, s2:{x:135,y:196}, s3:{x:325,y:196} };
+const CTRL = { c0:{x:130,y:30}, c1:{x:330,y:30} };
+const SW_COLORS = {1:'#58a6ff',2:'#3fb950',3:'#d29922'};
+const NS = 'http://www.w3.org/2000/svg';
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmtTime = t => new Date(t*1000).toLocaleTimeString();
+const fmtLeft = s => s === null ? '&infin;' : (s >= 60 ? Math.floor(s/60)+'m '+Math.round(s%60)+'s' : Math.round(s)+'s');
+
+function hostOf(kind, value) {
+  for (const [h,i] of Object.entries(HOSTS)) {
+    if ((kind==='mac' && value===i.mac) || (kind==='ip' && value===i.ip) || (kind==='port' && value===i.edge)) return h;
+  }
+  return null;
+}
+function nameOf(kind, value) { const h = hostOf(kind, value); return h ? `${h} <span style="color:var(--dim)">(${esc(value)})</span>` : esc(value); }
+function identName(ident) { const i = ident.indexOf(':'); return nameOf(ident.slice(0,i), ident.slice(i+1)); }
+
+function el(tag, attrs, parent) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); (parent||document.getElementById('topoSvg')).appendChild(e); return e; }
+function buildTopology() {
+  const svg = document.getElementById('topoSvg'); svg.innerHTML = '';
+  for (const c of ['c0','c1']) el('line', {id:'cl-'+c, x1:CTRL[c].x, y1:CTRL[c].y+16, x2:SW.s1.x, y2:SW.s1.y, stroke:'#263241', 'stroke-width':2});
+  el('line', {x1:SW.s1.x,y1:SW.s1.y,x2:SW.s2.x,y2:SW.s2.y,stroke:'#30363d','stroke-width':2,id:'link-1:1'});
+  el('line', {x1:SW.s1.x,y1:SW.s1.y,x2:SW.s3.x,y2:SW.s3.y,stroke:'#30363d','stroke-width':2,id:'link-1:2'});
+  for (const [h,i] of Object.entries(HOSTS)) el('line', {x1:SW[i.sw].x,y1:SW[i.sw].y,x2:i.x,y2:i.y,stroke:'#30363d','stroke-width':2,id:'link-'+i.edge});
+  for (const c of ['c0','c1']) {
+    el('rect', {id:'cr-'+c, x:CTRL[c].x-38, y:CTRL[c].y-16, width:76, height:32, rx:8, fill:'#18212b', stroke:'#263241', 'stroke-width':2});
+    const t = el('text', {x:CTRL[c].x, y:CTRL[c].y-1, 'text-anchor':'middle', 'font-size':12, 'font-weight':700, fill:'#e6edf3'}); t.textContent = c;
+    const r = el('text', {id:'ct-'+c, x:CTRL[c].x, y:CTRL[c].y+11, 'text-anchor':'middle', 'font-size':9, fill:'#8b98a8'}); r.textContent = '...';
+  }
+  for (const [n,p] of Object.entries(SW)) {
+    el('circle', {cx:p.x, cy:p.y, r:18, fill:SW_COLORS[n[1]]});
+    const t = el('text', {x:p.x, y:p.y+4, 'text-anchor':'middle', 'font-size':11, 'font-weight':700, fill:'#0b0f14'}); t.textContent = n;
+  }
+  for (const [h,i] of Object.entries(HOSTS)) {
+    el('circle', {id:'ring-'+h, class:'ring', cx:i.x, cy:i.y, r:17});
+    el('circle', {id:'node-'+h, cx:i.x, cy:i.y, r:16, fill:'#8b98a8'});
+    const t = el('text', {x:i.x, y:i.y+4, 'text-anchor':'middle', 'font-size':11, 'font-weight':700, fill:'#0b0f14'}); t.textContent = h;
+    const s = el('text', {id:'strike-'+h, x:i.x, y:i.y+32, 'text-anchor':'middle', 'font-size':10, 'font-weight':700, fill:'#f85149'}); s.textContent = '';
+  }
+}
+
+function updateTopology(st) {
+  for (const h of Object.keys(HOSTS)) {
+    const n = document.getElementById('node-'+h); n.classList.remove('host-blocked','host-quar');
+    document.getElementById('ring-'+h).classList.remove('on'); document.getElementById('strike-'+h).textContent = '';
+  }
+  document.querySelectorAll('[id^="link-"]').forEach(l => l.classList.remove('link-blocked'));
+  for (const b of st.blocks) {
+    const h = hostOf(b.kind, b.value); if (!h) continue;
+    const quar = b.seconds_left === null;
+    document.getElementById('node-'+h).classList.add(quar ? 'host-quar' : 'host-blocked');
+    document.getElementById('ring-'+h).classList.add('on');
+    document.getElementById('strike-'+h).textContent = b.strike ? (quar ? 'QUARANTINED' : 'strike '+b.strike) : 'blocked';
+    if (b.kind === 'port') { const l = document.getElementById('link-'+HOSTS[h].edge); if (l) l.classList.add('link-blocked'); }
+  }
+  for (const c of ['c0','c1']) {
+    const n = st.nodes[c], rect = document.getElementById('cr-'+c), line = document.getElementById('cl-'+c), txt = document.getElementById('ct-'+c);
+    const col = n.role==='leader' ? '#3fb950' : n.role==='standby' ? '#58a6ff' : '#f85149';
+    rect.setAttribute('stroke', col); line.setAttribute('stroke', col);
+    line.setAttribute('stroke-dasharray', n.role==='leader' ? '' : '5,4');
+    line.setAttribute('stroke-width', n.role==='leader' ? 3 : 2);
+    txt.textContent = n.role==='down' ? 'DOWN' : n.role.toUpperCase()+' · term '+n.term; txt.setAttribute('fill', col);
+    const pill = document.getElementById('pill-'+c);
+    pill.className = 'pill ' + n.role; pill.innerHTML = `<span class="dot"></span>${c} ${n.role==='down' ? 'DOWN' : n.role.toUpperCase()}`;
+  }
+}
+
+function drawChart(stats) {
+  const cv = document.getElementById('chart'), ctx = cv.getContext('2d');
+  ctx.clearRect(0,0,cv.width,cv.height);
+  const ids = Object.keys(stats); let max = 5;
+  for (const d of ids) for (const s of stats[d]) max = Math.max(max, s.packet_in);
+  document.getElementById('chartMax').textContent = 'peak ' + max + '/s';
+  ctx.strokeStyle = '#263241'; ctx.lineWidth = 1;
+  for (let k = 0; k <= 3; k++) { const y = 10 + k*(cv.height-20)/3; ctx.beginPath(); ctx.moveTo(8,y); ctx.lineTo(cv.width-8,y); ctx.stroke(); }
+  ids.forEach(d => {
+    const s = stats[d]; ctx.strokeStyle = SW_COLORS[d] || '#888'; ctx.lineWidth = 2; ctx.beginPath();
+    s.forEach((p,i) => { const x = 8 + i/Math.max(1,s.length-1)*(cv.width-16), y = cv.height-10 - p.packet_in/max*(cv.height-20); i ? ctx.lineTo(x,y) : ctx.moveTo(x,y); });
+    ctx.stroke();
+  });
+}
+
+function renderAlerts(a) {
+  const box = document.getElementById('alertsBox');
+  if (!a.length) { box.innerHTML = '<div class="empty">No alerts yet. Try: <code>attack syn_flood h3 h1 15</code></div>'; return; }
+  box.innerHTML = '<table><tr><th>Time</th><th>Attack</th><th>Target</th></tr>' + a.map(x =>
+    `<tr><td>${fmtTime(x.t)}</td><td><span class="badge b-${esc(x.attack)}">${esc(x.attack)}</span></td><td>${esc(x.target)}</td></tr>`).join('') + '</table>';
+}
+
+function renderBlocks(blocks) {
+  const box = document.getElementById('blocksBox');
+  if (!blocks.length) { box.innerHTML = '<div class="empty">Nothing blocked.</div>'; return; }
+  box.innerHTML = '<table><tr><th>Target</th><th>Reason</th><th>Strike</th><th>Ban</th><th>Left</th><th></th></tr>' + blocks.map(b => {
+    const pct = b.seconds_left === null ? 100 : Math.max(0, Math.min(100, b.seconds_left / (b.duration||30) * 100));
+    return `<tr><td>${nameOf(b.kind,b.value)}</td><td><span class="badge b-${esc(b.attack)}">${esc(b.attack)}</span></td>
+      <td>${b.strike ? '<span class="strike">#'+b.strike+'</span>' : '&ndash;'}</td><td>${esc(b.label)}</td>
+      <td>${fmtLeft(b.seconds_left)}<div class="bar"><i style="width:${pct}%"></i></div></td>
+      <td><button onclick='unblock(${JSON.stringify(b.kind)},${JSON.stringify(b.value)})'>Unblock</button></td></tr>`;
+  }).join('') + '</table>';
+}
+
+function renderOffenders(st) {
+  const box = document.getElementById('offBox'), L = st.ladder;
+  const chips = (hit, next) => L.map((s,i) => `<span class="step ${i<hit?'hit':''} ${i===hit&&next?'next':''}">${s>=60&&s%60===0?s/60+'m':s+'s'}</span>`).join('')
+    + `<span class="step quar ${hit>L.length?'hit':''} ${hit===L.length&&next?'next':''}">QUARANTINE</span>`;
+  if (!st.offenders.length) {
+    box.innerHTML = `<div class="empty">No offenders on record. Every repeat offence climbs this ladder:</div><div class="ladder">${chips(0,false)}</div>
+      <div class="hint">Strikes are forgotten after ${Math.round(st.forget_after)}s of good behaviour once a ban ends.</div>`; return;
+  }
+  box.innerHTML = st.offenders.map(o => `<div class="off"><b>${identName(o.identity)}</b>
+    &nbsp;<span class="strike">${o.strikes} strike${o.strikes>1?'s':''}</span> <span class="badge b-${esc(o.last_attack)}">${esc(o.last_attack)}</span>
+    <div class="ladder">${chips(o.strikes,true)}</div>
+    <div class="hint" style="margin:0">next offence &rarr; <b>${esc(o.next)}</b> ban${o.forget_in===null?' &middot; quarantined until an admin unblocks':' &middot; forgiven in '+o.forget_in+'s if it behaves'}</div></div>`).join('');
+}
+
+function renderIntegrity(st) {
+  const i = st.integrity, box = document.getElementById('intBox');
+  const bad = i.violations_last_scan > 0;
+  const head = i.last_scan_age === null ? '<span class="warn">Waiting for first scan&hellip;</span>'
+    : `<span class="${bad?'warn':'ok'}">${bad?'&#9888; violation found on last scan':'&#10003; all switch rules verified'}</span>`;
+  box.innerHTML = `<div class="big">${head}</div>
+    <div class="hint" style="margin:0 0 8px">${i.flows_verified} flows checked on ${i.switches_scanned} switches${i.last_scan_age===null?'':' &middot; last scan '+i.last_scan_age+'s ago'} &middot;
+      <b>${i.rogue_removed}</b> rogue rule(s) removed &middot; <b>${i.rules_restored}</b> deleted rule(s) restored</div>` +
+    (i.events.length ? i.events.slice(0,6).map(e => `<div class="ev"><time>${fmtTime(e.t)}</time><span class="${e.kind==='removed'||e.kind==='restored'?'ok':'warn'}">${
+      {rogue_flow:'&#9888; ROGUE RULE',flow_deleted:'&#9888; RULE DELETED',removed:'&#10003; REMOVED',restored:'&#10003; RESTORED'}[e.kind]||''}</span><span>${esc(e.text)}</span></div>`).join('')
+     : '<div class="empty">No tampering seen. Simulate an insider: <code>insider rogue s2</code> or <code>insider wipe s3</code></div>');
+}
+
+function renderBanner(st) {
+  const b = document.getElementById('banner'), f = st.failover_banner;
+  if (!f) { b.style.display = 'none'; return; }
+  b.style.display = 'block';
+  b.innerHTML = `&#9889; FAILOVER &mdash; <b>${esc(f.node)}</b> took over as leader (term ${f.term}) after ${esc(f.prev_leader)} went silent for ${f.gap_s}s.
+    <span style="font-weight:400">${f.blocks_kept ? f.blocks_kept+' active block(s) preserved &middot; attackers stayed blocked throughout; ' : 'no bans were active at that moment; '}all strike counts preserved.</span>`;
+}
+
+async function unblock(kind, value) {
+  await fetch('/ui/unblock', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({kind, value})});
+}
+
+let defenseSyncing = false;
+async function poll() {
+  try {
+    const st = await (await fetch('/api/state')).json();
+    renderAlerts(st.alerts); renderBlocks(st.blocks); renderOffenders(st); renderIntegrity(st); renderBanner(st);
+    updateTopology(st); drawChart(st.stats);
+    document.getElementById('k-alerts').textContent = st.totals.alerts;
+    document.getElementById('k-blocks').textContent = st.blocks.length;
+    document.getElementById('k-integrity').textContent = st.integrity.rogue_removed + st.integrity.rules_restored;
+    document.getElementById('k-failovers').textContent = st.totals.failovers;
+    if (!defenseSyncing) document.getElementById('defenseToggle').checked = st.defense_on;
+  } catch (e) { /* backend not reachable yet - retry */ }
+}
+async function pollAudit() {
+  try {
+    const a = await (await fetch('/api/audit')).json();
+    document.getElementById('auditBox').innerHTML = a.length ? '<table><tr><th>Time</th><th>Event</th><th>Detail</th><th>Hash</th></tr>' + a.map(e =>
+      `<tr><td>${fmtTime(e.t)}</td><td>${esc(e.type)}</td><td class="mono">${esc(e.detail)}</td><td class="mono">${esc(e.hash)}&hellip;</td></tr>`).join('') + '</table>' : '';
+  } catch (e) {}
+}
+
+document.getElementById('defenseToggle').addEventListener('change', async ev => {
+  defenseSyncing = true;
+  await fetch('/ui/defense', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({value: ev.target.checked ? 'on' : 'off'})});
+  setTimeout(() => { defenseSyncing = false; }, 2500);
+});
+document.getElementById('verifyBtn').addEventListener('click', async () => {
+  const el = document.getElementById('chainResult'); el.textContent = 'Verifying...';
+  const r = await (await fetch('/api/chain')).json();
+  el.innerHTML = r.ok ? `<span class="ok">&#10003; Chain intact &mdash; ${r.entries} entries verified.</span>`
+                      : `<span class="bad">&#10007; TAMPERED &mdash; break detected at entry #${r.break_at}.</span>`;
+});
+
+buildTopology(); poll(); pollAudit();
+setInterval(poll, 1000); setInterval(pollAudit, 2500);
+</script>
+</body>
+</html>
